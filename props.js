@@ -3,8 +3,8 @@
 export function createProps(THREE, models, textures = {}) {
   const std = o => new THREE.MeshStandardMaterial(o);
   const M = {
-    walnut: std({ color: '#b98a72', roughness: .46 }),
-    fabric: std({ color: '#e9e1d1', roughness: .97 }),
+    walnut: std({ color: '#f1e6d2', roughness: .5 }),      // roble de los bancos
+    fabric: std({ color: '#ebe4d5', roughness: .97 }),
     brass: std({ color: '#c9a45c', roughness: .28, metalness: 1 }),
     globe: std({ color: '#fff4e2', emissive: '#ffdfae', emissiveIntensity: 1.35, roughness: .35 }),
     enamel: std({ color: '#3b3d40', roughness: .42, metalness: .25 }),
@@ -29,8 +29,12 @@ export function createProps(THREE, models, textures = {}) {
   };
 
   // Texturas reales: veta de madera a lo largo de cada pieza del banco y relieve de tela en el tapizado.
-  if (textures.stoolWood) { const t = textures.stoolWood; t.center.set(.5, .5); t.rotation = Math.PI / 2; t.repeat.set(1.4, .22); M.walnut.map = t; }
-  if (textures.fabricNormal) { const t = textures.fabricNormal; t.repeat.set(7, 7); M.fabric.normalMap = t; M.fabric.normalScale = new THREE.Vector2(1.1, 1.1); }
+  if (textures.stoolWood) {
+    const t = textures.stoolWood; t.repeat.set(3, 1.2); M.walnut.map = t;            // veta a lo largo de las patas
+    const th = t.clone(); th.center.set(.5, .5); th.rotation = Math.PI / 2; th.needsUpdate = true;
+    M.woodH = M.walnut.clone(); M.woodH.map = th;                                   // veta siguiendo el respaldo y el aro
+  }
+  if (textures.fabricNormal) { const t = textures.fabricNormal; t.repeat.set(9, 3); M.fabric.normalMap = t; M.fabric.normalScale = new THREE.Vector2(.6, .6); }
 
   const shadow = (o, cast = true) => { o.traverse(m => { if (m.isMesh) { m.castShadow = cast; m.receiveShadow = true; } }); return o; };
   const mesh = (geo, mat) => new THREE.Mesh(geo, mat);
@@ -61,26 +65,38 @@ export function createProps(THREE, models, textures = {}) {
   }
   const clone = name => { const m = models[name]; return m ? m.clone(true) : new THREE.Group(); };
 
-  // ---------------------------------------------------------------- Banco (referencia: Banco Lia)
+  // ---------------------------------------------------------------- Banco (referencia del cliente: taburete de roble
+  // con asiento redondo tapizado, respaldo curvo bajo y aro descansapiés; altura para barra de 90 cm)
   function stool() {
-    const g = new THREE.Group();
-    const seatY = .66;
-    const seat = slab(.5, .44, .075, .1, M.fabric, .018); seat.position.set(0, seatY - .075, .02); g.add(seat);
-    box(g, M.walnut, [.42, .028, .36], [0, seatY - .09, .02]);
-    for (const sx of [-1, 1]) {
-      const x = sx * .238;
-      beam(g, M.walnut, [x, 0, .23], [x, .84, -.172], .034, .05);     // pata delantera que sube hasta el respaldo
-      beam(g, M.walnut, [x, 0, -.27], [x, .6, -.06], .034, .05);     // pata trasera
-      beam(g, M.walnut, [x, .25, .125], [x, .25, -.165], .026, .03); // travesaño lateral
-    }
-    beam(g, M.walnut, [-.238, .27, .118], [.238, .27, .118], .03, .034);   // descansapiés
-    beam(g, M.walnut, [-.238, .25, -.165], [.238, .25, -.165], .026, .03);
-    box(g, M.steelBrushed, [.45, .004, .036], [0, .288, .118]);
-    // respaldo curvo tapizado
-    const arc = new THREE.Shape(); const R = .275, r = .215, a0 = THREE.MathUtils.degToRad(8), a1 = THREE.MathUtils.degToRad(172);
-    arc.absarc(0, 0, R, a0, a1, false); arc.absarc(0, 0, r, a1, a0, true);
-    const bg = new THREE.ExtrudeGeometry(arc, { depth: .19, bevelEnabled: true, bevelSize: .016, bevelThickness: .016, bevelSegments: 3, curveSegments: 28 });
-    bg.rotateX(-Math.PI / 2); const back = mesh(bg, M.fabric); back.position.set(0, .745, .05); back.scale.set(1, 1, .9); g.add(back);
+    const g = new THREE.Group(), woodH = M.woodH || M.walnut;
+    const seatTop = .66, cushion = .09, R = .2, legR = .215, rad = THREE.MathUtils.degToRad;
+    // cojín redondo
+    const c = lathe([[0, 0], [R - .02, 0], [R - .006, .01], [R, .03], [R, cushion - .03], [R - .008, cushion - .01], [R - .03, cushion], [0, cushion]], M.fabric, 48);
+    c.position.y = seatTop - cushion; g.add(c);
+    const base = mesh(new THREE.CylinderGeometry(R - .02, R - .02, .022, 40), M.walnut); base.position.y = seatTop - cushion - .011; g.add(base);
+    // cuatro patas (ángulos medidos desde el frente, +Z); las dos traseras suben hasta el respaldo
+    const angles = [40, -40, 140, -140].map(rad);
+    angles.forEach((a, i) => {
+      const leg = slab(.046, .04, i >= 2 ? .8 : seatTop - .035, .011, M.walnut, .003);
+      leg.position.set(Math.sin(a) * legR, 0, Math.cos(a) * legR); leg.rotation.y = a; g.add(leg);
+      for (const y of [seatTop - .075, seatTop - .105]) {   // tornillos vistos, como en la referencia
+        const sc = mesh(new THREE.CylinderGeometry(.0045, .0045, .003, 12), M.blackHandle);
+        sc.rotation.x = Math.PI / 2; sc.position.set(0, y, .0205); leg.add(sc);
+      }
+    });
+    // bastidor en cruz bajo el asiento
+    const fy = seatTop - cushion - .045;
+    for (const k of [0, 1]) { const p = angles[k], q = angles[3 - k]; beam(g, M.walnut, [Math.sin(p) * legR, fy, Math.cos(p) * legR], [Math.sin(q) * legR, fy, Math.cos(q) * legR], .028, .045); }
+    // respaldo curvo bajo de madera
+    const span = rad(58), arc = new THREE.Shape();
+    arc.absarc(0, 0, .237, Math.PI / 2 - span, Math.PI / 2 + span, false); arc.absarc(0, 0, .2, Math.PI / 2 + span, Math.PI / 2 - span, true);
+    const bg = new THREE.ExtrudeGeometry(arc, { depth: .095, bevelEnabled: true, bevelSize: .005, bevelThickness: .005, bevelSegments: 2, curveSegments: 32 });
+    bg.rotateX(-Math.PI / 2); const back = mesh(bg, woodH); back.position.y = .752; g.add(back);
+    // aro descansapiés
+    const ring = new THREE.Shape(); ring.absarc(0, 0, .233, 0, Math.PI * 2, false);
+    const hole = new THREE.Path(); hole.absarc(0, 0, .197, 0, Math.PI * 2, true); ring.holes.push(hole);
+    const rg = new THREE.ExtrudeGeometry(ring, { depth: .02, bevelEnabled: true, bevelSize: .003, bevelThickness: .003, bevelSegments: 2, curveSegments: 40 });
+    rg.rotateX(-Math.PI / 2); const foot = mesh(rg, woodH); foot.position.y = .2; g.add(foot);
     return shadow(g);
   }
 

@@ -36,7 +36,7 @@ export async function createScene(THREE, renderer) {
   const loadTex = async url => { const t = await texLoader.loadAsync(url); t.colorSpace = THREE.SRGBColorSpace; t.flipY = false; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = maxAniso; return t; };
   const [erena, granite, mdf, marble, fabricNormal, stoolWood, personTex, islandGltf, ...propGltfs] = await Promise.all([
     loadTex('./assets/erena.jpg'), loadTex('./assets/granito.jpg'), loadTex('./assets/mdf.jpg'),
-    loadTex('./assets/marmol.jpg'), loadTex('./assets/tela-normal.jpg'), loadTex('./assets/madera-banco.jpg'),
+    loadTex('./assets/marmol.jpg'), loadTex('./assets/tela-normal.jpg'), loadTex('./assets/roble-banco.jpg'),
     texLoader.loadAsync('./assets/persona-ama.webp'),
     loadModel('isla'),
     ...PROP_MODELS.map(loadModel),
@@ -171,9 +171,6 @@ export async function createScene(THREE, renderer) {
   dimLine([[-X, .9, Z], [-X, 1.03, Z], [X, 1.03, Z], [X, .9, Z]]); dimLabel('1.25 m', [0, 1.09, Z]);
   dimLine([[-X, .9, -Z], [-X - .14, .9, -Z], [-X - .14, .9, Z], [-X, .9, Z]]); dimLabel('0.95 m', [-X - .23, .92, 0]);
   dimLine([[-X, 0, Z], [-X - .14, 0, Z], [-X - .14, .9, Z]]); dimLabel('0.90 m', [-X - .23, .45, Z]);
-  // pases libres hacia la barra de la ventana y hacia la estufa
-  dimLine([[.3, .9, Z], [.3, .9, Z + PASS]]); dimLine([[.26, .9, Z + PASS], [.34, .9, Z + PASS]]); dimLabel('1.10 m', [.3, .93, Z + PASS / 2]);
-  dimLine([[X, .9, -.3], [X + PASS, .9, -.3]]); dimLine([[X + PASS, .9, -.34], [X + PASS, .9, -.26]]); dimLabel('1.10 m', [X + PASS / 2, .93, -.3]);
 
   // ---------- iluminación ----------
   scene.add(new THREE.HemisphereLight('#ffffff', '#b9b3a8', 1.3));
