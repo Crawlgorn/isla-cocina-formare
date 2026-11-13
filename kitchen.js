@@ -2,7 +2,7 @@
 // Coordenadas en metros. La isla está centrada en el origen; los cajones abren hacia +Z.
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-export function buildKitchen(THREE, { granite, marble, maxAniso = 8, offset = new THREE.Vector3() }) {
+export function buildKitchen(THREE, { granite, marble, maxAniso = 8, offset = new THREE.Vector3(), cornerX = 2.45 }) {
   const root = new THREE.Group(); root.name = 'entorno'; root.position.copy(offset);
 
   // ---------- texturas procedurales ----------
@@ -128,41 +128,49 @@ export function buildKitchen(THREE, { granite, marble, maxAniso = 8, offset = ne
   floorTex.repeat.set(16 / 2.4, 16 / 2.4);
   const floor = new THREE.Mesh(new THREE.PlaneGeometry(16, 16), new THREE.MeshStandardMaterial({ map: floorTex, roughness: .16, metalness: 0, envMapIntensity: .9 }));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; root.add(floor);
-  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(5.45, 3.9), M.ceiling);
-  ceiling.rotation.x = Math.PI / 2; ceiling.position.set(-.275, 2.5, .25); root.add(ceiling);
+  // El borde exterior de la torre de alacena queda fijo; la esquina de la L (cornerX) se coloca donde haga falta
+  // para dar el pase pedido frente a la estufa, y la barra de la ventana toma el largo que resulte.
+  const TOWER_EDGE = -.95, TOWER_W = .75, run = cornerX - TOWER_EDGE - TOWER_W;
+  const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(cornerX + 3, 3.9), M.ceiling);
+  ceiling.rotation.x = Math.PI / 2; ceiling.position.set((cornerX - 3) / 2, 2.5, .25); root.add(ceiling);
 
   // ---------- muro de ventana (los cajones de la isla abren hacia él) ----------
   // Marco local: x a lo largo del muro desde la esquina, z saliendo del muro hacia la cocina.
   const w1 = new THREE.Group(); w1.name = 'muro-ventana';
-  const b1 = builder(new THREE.Matrix4().makeRotationY(Math.PI).setPosition(2.45, 0, 2.2));
-  b1.box(M.wall, [5.45, 2.5, .02], [2.725, 1.25, -.01]);
-  b1.box(M.stone, [2.65, 2.5, .012], [1.325, 1.25, .006]);
-  b1.base(0, .62, 1); b1.base(.62, 1.95, 3); b1.base(1.95, 2.65, 2);
-  b1.box(M.counter, [2.67, .03, .63], [1.335, .885, .315]);
+  const b1 = builder(new THREE.Matrix4().makeRotationY(Math.PI).setPosition(cornerX, 0, 2.2));
+  const sinkEnd = run - .7, cs = (.62 + sinkEnd) / 2;   // cs: centro de la tarja y de la ventana
+  b1.box(M.wall, [cornerX + 3, 2.5, .02], [(cornerX + 3) / 2, 1.25, -.01]);
+  b1.box(M.stone, [run, 2.5, .012], [run / 2, 1.25, .006]);
+  b1.base(0, .62, 1); b1.base(.62, sinkEnd, sinkEnd - .62 > 1.1 ? 3 : 2); b1.base(sinkEnd, run, 2);
+  b1.box(M.counter, [run + .02, .03, .63], [(run + .02) / 2, .885, .315]);
   // tarja y llave
-  b1.box(M.steelDark, [.72, .012, .4], [1.12, .902, .3]);
-  b1.box(M.steel, [.34, .006, .36], [.94, .905, .3]); b1.box(M.steel, [.34, .006, .36], [1.3, .905, .3]);
-  b1.cyl(M.steel, .014, .3, [1.12, 1.05, .09], 'y', 12); b1.cyl(M.steel, .012, .2, [1.12, 1.2, .18], 'z', 12); b1.cyl(M.steel, .016, .07, [1.12, 1.17, .28], 'y', 12);
+  b1.box(M.steelDark, [.72, .012, .4], [cs, .902, .3]);
+  b1.box(M.steel, [.34, .006, .36], [cs - .18, .905, .3]); b1.box(M.steel, [.34, .006, .36], [cs + .18, .905, .3]);
+  b1.cyl(M.steel, .014, .3, [cs, 1.05, .09], 'y', 12); b1.cyl(M.steel, .012, .2, [cs, 1.2, .18], 'z', 12); b1.cyl(M.steel, .016, .07, [cs, 1.17, .28], 'y', 12);
   // ventana con persianas
-  b1.box(M.white, [1.32, 1.02, .05], [1.15, 1.56, .03]);
-  b1.box(M.daylight, [1.2, .9, .012], [1.15, 1.56, .058]);
-  b1.box(M.white, [.05, .9, .03], [1.15, 1.56, .075]);
+  const hw = Math.min(.66, cs - .38), pw = hw - .11;   // media anchura de la ventana y ancho de cada hoja de persiana
+  b1.box(M.white, [2 * hw, 1.02, .05], [cs, 1.56, .03]);
+  b1.box(M.daylight, [2 * hw - .12, .9, .012], [cs, 1.56, .058]);
+  b1.box(M.white, [.05, .9, .03], [cs, 1.56, .075]);
   for (let p = 0; p < 2; p++) for (let i = 0; i < 13; i++) {
-    const g = new THREE.BoxGeometry(.55, .052, .008); g.rotateX(-.55); g.translate(.85 + p * .6, 1.15 + i * .068, .078); b1.geo(M.white, g);
+    const g = new THREE.BoxGeometry(pw, .052, .008); g.rotateX(-.55); g.translate(cs + (p ? 1 : -1) * (pw / 2 + .025), 1.15 + i * .068, .078); b1.geo(M.white, g);
   }
-  b1.upper(1.9, 2.65, 2);
+  const upperStart = Math.max(cs + hw + .05, run - .75);
+  if (run - upperStart > .3) b1.upper(upperStart, run, run - upperStart > .6 ? 2 : 1);
   // alacena alta de dos cuerpos
-  b1.box(M.white, [.75, 2.3, .6], [3.025, 1.15, .3]);
-  b1.box(M.white, [.78, .07, .65], [3.025, 2.335, .31]);
-  b1.front(M.white, 2.65, 3.4, 1.16, 2.3, .6, 'tall-r'); b1.front(M.white, 2.65, 3.4, .0, 1.155, .6, 'tall-r');
+  b1.box(M.white, [TOWER_W, 2.3, .6], [run + TOWER_W / 2, 1.15, .3]);
+  b1.box(M.white, [TOWER_W + .03, .07, .65], [run + TOWER_W / 2, 2.335, .31]);
+  // las jaladeras de la torre van del lado de la tarja, opuesto al borde que se alinea con la isla
+  b1.front(M.white, run, run + TOWER_W, 1.16, 2.3, .6, 'tall-l'); b1.front(M.white, run, run + TOWER_W, .0, 1.155, .6, 'tall-l');
   // puerta
-  b1.box(M.white, [.98, 2.12, .03], [4.1, 1.06, .012]); b1.box(M.door, [.86, 2.04, .04], [4.1, 1.02, .02]);
-  b1.cyl(M.steel, .028, .05, [3.76, 1.0, .05], 'z', 14);
+  const doorX = run + TOWER_W + .7;
+  b1.box(M.white, [.98, 2.12, .03], [doorX, 1.06, .012]); b1.box(M.door, [.86, 2.04, .04], [doorX, 1.02, .02]);
+  b1.cyl(M.steel, .028, .05, [doorX - .34, 1.0, .05], 'z', 14);
   b1.finish(w1); root.add(w1);
 
   // ---------- muro de estufa y refrigerador ----------
   const w2 = new THREE.Group(); w2.name = 'muro-estufa';
-  const b2 = builder(new THREE.Matrix4().makeRotationY(-Math.PI / 2).setPosition(2.45, 0, -1.7));
+  const b2 = builder(new THREE.Matrix4().makeRotationY(-Math.PI / 2).setPosition(cornerX, 0, -1.7));
   b2.box(M.wall, [3.9, 2.5, .02], [1.95, 1.25, -.01]);
   b2.box(M.stone, [2.65, 2.5, .012], [2.575, 1.25, .006]);
   // refrigerador
@@ -192,11 +200,11 @@ export function buildKitchen(THREE, { granite, marble, maxAniso = 8, offset = ne
   b2.upper(2.4, 3.9, 3);
   b2.finish(w2); root.add(w2);
   // remate corto junto al refrigerador
-  const stub = new THREE.Mesh(new THREE.PlaneGeometry(.95, 2.5), M.wall); stub.position.set(1.975, 1.25, -1.7); w2.add(stub);
+  const stub = new THREE.Mesh(new THREE.PlaneGeometry(.95, 2.5), M.wall); stub.position.set(cornerX - .475, 1.25, -1.7); w2.add(stub);
 
   // Al pasar la cámara detrás de un muro, ese muro se oculta para no tapar la isla.
   function update(camera) {
-    const a = camera.position.z < 1.5 + offset.z, b = camera.position.x < 1.75 + offset.x;
+    const a = camera.position.z < 1.5 + offset.z, b = camera.position.x < cornerX - .7 + offset.x;
     const changed = a !== w1.visible || b !== w2.visible;
     w1.visible = a; w2.visible = b;
     ceiling.visible = camera.position.y < 2.45;

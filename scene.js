@@ -137,20 +137,23 @@ export async function createScene(THREE, renderer) {
   const figure = new THREE.Mesh(new THREE.PlaneGeometry(.6385, 1.712), new THREE.MeshBasicMaterial({ map: personTex, transparent: true, alphaTest: .35, side: THREE.DoubleSide }));
   personTex.colorSpace = THREE.SRGBColorSpace;
   personTex.anisotropy = maxAniso;
-  figure.position.set(1.32, .85, .1); persona.add(figure);
+  figure.position.set(1.18, .85, .25); persona.add(figure);
   {
     const c = document.createElement('canvas'); c.width = c.height = 128; const x = c.getContext('2d');
     const gr = x.createRadialGradient(64, 64, 6, 64, 64, 62); gr.addColorStop(0, 'rgba(30,28,24,.42)'); gr.addColorStop(1, 'rgba(30,28,24,0)'); x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
     const blob = new THREE.Mesh(new THREE.PlaneGeometry(.62, .36), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false }));
-    blob.rotation.x = -Math.PI / 2; blob.position.set(1.32, .004, .1); persona.add(blob);
+    blob.rotation.x = -Math.PI / 2; blob.position.set(1.18, .004, .25); persona.add(blob);
   }
 
   // ---------- entorno ----------
   // La isla queda a 1.10 m de paso de la barra de la ventana, y el borde de su cubierta (lado de la sala)
   // se alinea con el borde exterior de la torre de alacena; por eso el paso hacia la estufa resulta mayor.
-  const TOWER_EDGE_X = -.95, WINDOW_FRONTS_Z = 1.58;          // posiciones en el modelo de la cocina
-  const kitchenOffset = new THREE.Vector3(-.6265 - TOWER_EDGE_X, 0, (.473 + 1.10) - WINDOW_FRONTS_Z);
-  const kitchen = buildKitchen(THREE, { granite, marble: marble.image, maxAniso, offset: kitchenOffset }); scene.add(kitchen.root);
+  // PASS: pase libre de 1.10 m entre la cubierta de la isla y la cubierta de la L, en ambos lados.
+  // La isla no se mueve: la L de la cocina se acomoda a esas medidas.
+  const TOWER_EDGE_X = -.95, WINDOW_WALL_Z = 2.2, L_COUNTER_DEPTH = .63, PASS = 1.10;   // TOWER_EDGE_X y WINDOW_WALL_Z: posiciones en el modelo de la cocina
+  const kitchenOffset = new THREE.Vector3(-.6265 - TOWER_EDGE_X, 0, (.473 + PASS + L_COUNTER_DEPTH) - WINDOW_WALL_Z);
+  const cornerX = (.6265 + PASS + L_COUNTER_DEPTH) - kitchenOffset.x;
+  const kitchen = buildKitchen(THREE, { granite, marble: marble.image, maxAniso, offset: kitchenOffset, cornerX }); scene.add(kitchen.root);
 
   // ---------- cotas generales (independientes de las demás casillas) ----------
   const cotas = group('cotas');
@@ -168,6 +171,9 @@ export async function createScene(THREE, renderer) {
   dimLine([[-X, .9, Z], [-X, 1.03, Z], [X, 1.03, Z], [X, .9, Z]]); dimLabel('1.25 m', [0, 1.09, Z]);
   dimLine([[-X, .9, -Z], [-X - .14, .9, -Z], [-X - .14, .9, Z], [-X, .9, Z]]); dimLabel('0.95 m', [-X - .23, .92, 0]);
   dimLine([[-X, 0, Z], [-X - .14, 0, Z], [-X - .14, .9, Z]]); dimLabel('0.90 m', [-X - .23, .45, Z]);
+  // pases libres hacia la barra de la ventana y hacia la estufa
+  dimLine([[.3, .9, Z], [.3, .9, Z + PASS]]); dimLine([[.26, .9, Z + PASS], [.34, .9, Z + PASS]]); dimLabel('1.10 m', [.3, .93, Z + PASS / 2]);
+  dimLine([[X, .9, -.3], [X + PASS, .9, -.3]]); dimLine([[X + PASS, .9, -.34], [X + PASS, .9, -.26]]); dimLabel('1.10 m', [X + PASS / 2, .93, -.3]);
 
   // ---------- iluminación ----------
   scene.add(new THREE.HemisphereLight('#ffffff', '#b9b3a8', 1.3));
