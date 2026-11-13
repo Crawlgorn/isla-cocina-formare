@@ -120,7 +120,7 @@ export function createProps(THREE, models, textures = {}) {
     globe(-.035, -.3, .02); globe(.04, -.36, -.015); globe(-.01, -.43, .03); globe(0, -.84, 0);
     // luz cálida de la lámpara encendida
     const lights = [];
-    for (const [x, y, i] of [[0, -.45, 5.5], [-.55, -.35, 3], [.55, -.4, 3]]) {
+    for (const [x, y, i] of [[0, -.42, 10]]) {   // una sola luz puntual: mismo ambiente, menos carga para gráficas integradas
       const l = new THREE.PointLight('#ffd7a1', i, 6, 2); l.position.set(x, y, 0); l.userData.on = i; g.add(l); lights.push(l);
     }
     // Encender y apagar: las luces se quedan en la escena con intensidad 0, para no recompilar materiales.

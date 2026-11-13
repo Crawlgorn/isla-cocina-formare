@@ -172,7 +172,7 @@ export async function createScene(THREE, renderer) {
   // ---------- iluminación ----------
   scene.add(new THREE.HemisphereLight('#ffffff', '#b9b3a8', 1.3));
   const key = new THREE.DirectionalLight('#fff6e8', 1.9); key.position.set(-2.6, 5.5, 4.2); key.target.position.set(0, .5, .2); scene.add(key.target);
-  key.castShadow = true; const shadowSize = window.matchMedia('(pointer: coarse)').matches ? 2048 : 4096; key.shadow.mapSize.set(shadowSize, shadowSize);
+  key.castShadow = true; key.shadow.mapSize.set(2048, 2048);
   Object.assign(key.shadow.camera, { left: -3.2, right: 3.2, top: 3.2, bottom: -3.2, near: .5, far: 14 });
   key.shadow.bias = -.0002; key.shadow.normalBias = .02; key.shadow.radius = 4; scene.add(key);
   const fillLight = new THREE.DirectionalLight('#eef2f6', .55); fillLight.position.set(3.5, 3, -3.5); scene.add(fillLight);
@@ -203,6 +203,8 @@ export async function createScene(THREE, renderer) {
     const dt = Math.min(Math.max(now - lastFrame, 0), 100); lastFrame = now;
     let moved = false;
     for (const d of Object.values(DRAWERS)) {
+      const showContents = contentsOn && (d.t > 0 || !!d.anim);
+      if (d.contents.visible !== showContents) { d.contents.visible = showContents; moved = true; }
       const a = d.anim; if (!a) continue;
       if (a.wait > 0) { a.wait -= dt; continue; }
       a.p = Math.min(1, a.p + dt / a.dur); const p = a.p;
@@ -219,7 +221,8 @@ export async function createScene(THREE, renderer) {
     figure.rotation.y = Math.atan2(camera.position.x - figure.position.x, camera.position.z - figure.position.z);
     return moved;
   }
-  function setContentsVisible(v) { for (const d of Object.values(DRAWERS)) d.contents.visible = v; }
+  let contentsOn = true;
+  function setContentsVisible(v) { contentsOn = v; }
 
   return {
     scene, groups, target: new THREE.Vector3(0, .56, .16), update, toggleDrawer, setContentsVisible, setLamp: on => lamp.userData.setOn(on),

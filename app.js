@@ -116,7 +116,9 @@ async function init(){
   const chips=[...document.querySelectorAll('.drawer-chip')].map(el=>({el,drawer:api.drawers[el.dataset.drawer],name:el.dataset.drawer,text:el.querySelector('span')}));
   const drawerNames={inferior:'cajón inferior',medio:'cajón medio',interior:'cajón interior'};
   function refreshChips(){for(const c of chips){const open=c.drawer.open;c.text.textContent=open?'Toca para cerrar':'Toca para abrir';c.el.setAttribute('aria-pressed',String(open));c.el.setAttribute('aria-label',(open?'Cerrar ':'Abrir ')+drawerNames[c.name])}}
-  chips.forEach(c=>c.el.addEventListener('click',()=>api.toggleDrawer(c.name)));
+  const lastDrawerTap={};
+  function tapDrawer(name){const now=performance.now();if(lastDrawerTap[name]&&now-lastDrawerTap[name]<650)return;lastDrawerTap[name]=now;api.toggleDrawer(name)}
+  chips.forEach(c=>c.el.addEventListener('click',()=>tapDrawer(c.name)));
   api.onDrawerChange(refreshChips);refreshChips();
   const anchor=new THREE.Vector3(),toCamera=new THREE.Vector3();
   function placeChips(){
@@ -133,7 +135,7 @@ async function init(){
     if(visible){const x=(anchor.x*.5+.5)*w,y=(-anchor.y*.5+.5)*h;c.el.style.transform=`translate(-50%,-50%) translate(${x.toFixed(1)}px,${y.toFixed(1)}px)`}
    }
   }
-  if(new URLSearchParams(location.search).has('debug'))window.__viewer={camera,controls,api,THREE};
+  if(new URLSearchParams(location.search).has('debug'))window.__viewer={camera,controls,api,THREE,renderer,scene};
   renderer.shadowMap.autoUpdate=false;let shadowDirty=6;
   function animate(){requestAnimationFrame(animate);controls.update();if(api.update(camera))shadowDirty=2;if(shadowDirty>0){renderer.shadowMap.needsUpdate=true;shadowDirty--}renderer.render(scene,camera);placeChips()}animate();
 
@@ -144,6 +146,16 @@ async function init(){
   function zoom(factor){const v=camera.position.clone().sub(controls.target);const next=THREE.MathUtils.clamp(v.length()*factor,controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(v.setLength(next));controls.update()}
   document.querySelector('#zoom-in').addEventListener('click',()=>zoom(.78));document.querySelector('#zoom-out').addEventListener('click',()=>zoom(1.28));
   const canvas=renderer.domElement;canvas.style.touchAction='none';let tapStart=null,lastTap=null;
+  const raycaster=new THREE.Raycaster(),pointerNdc=new THREE.Vector2();let press=null;
+  const shown=o=>{for(let n=o;n;n=n.parent)if(!n.visible)return false;return true};
+  canvas.addEventListener('pointerdown',e=>{press=e.isPrimary&&e.button===0?{x:e.clientX,y:e.clientY,time:performance.now()}:null});
+  canvas.addEventListener('pointerup',e=>{
+   const p=press;press=null;if(!p||Math.hypot(e.clientX-p.x,e.clientY-p.y)>6||performance.now()-p.time>400)return;
+   const r=canvas.getBoundingClientRect();pointerNdc.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);
+   raycaster.setFromCamera(pointerNdc,camera);
+   const hit=raycaster.intersectObject(groups.isla,true).find(h=>h.object.isMesh&&shown(h.object));if(!hit)return;
+   for(const [name,d] of Object.entries(api.drawers)){for(let n=hit.object;n;n=n.parent)if(n===d.box){tapDrawer(name);return}}
+  });
   canvas.addEventListener('touchstart',event=>{if(event.touches.length!==1){tapStart=null;lastTap=null;return}const t=event.touches[0];tapStart={x:t.clientX,y:t.clientY,time:performance.now()}},{passive:true});
   canvas.addEventListener('touchmove',event=>{if(!tapStart)return;if(event.touches.length!==1){tapStart=null;lastTap=null;return}const t=event.touches[0];if(Math.hypot(t.clientX-tapStart.x,t.clientY-tapStart.y)>12){tapStart=null;lastTap=null}},{passive:true});
   canvas.addEventListener('touchend',event=>{if(!tapStart||event.touches.length!==0||event.changedTouches.length!==1){tapStart=null;return}const t=event.changedTouches[0],now=performance.now();const isTap=now-tapStart.time<280&&Math.hypot(t.clientX-tapStart.x,t.clientY-tapStart.y)<=12;tapStart=null;if(!isTap){lastTap=null;return}if(lastTap&&now-lastTap.time<340&&Math.hypot(t.clientX-lastTap.x,t.clientY-lastTap.y)<32){if(event.cancelable)event.preventDefault();lastTap=null;zoom(.78)}else lastTap={x:t.clientX,y:t.clientY,time:now}},{passive:false});
